@@ -11,7 +11,7 @@
 #include <QGraphicsItem>
 #include <QtMath>
 const int WINDOW_HEIGHT = 500;
-const qreal PRECISION = 0.03;
+const qreal PRECISION = 0.0005;
 const qreal A = 200;
 const qreal B = 100;
 
@@ -20,15 +20,16 @@ Window::Window(QWidget *parent) :
     , p1(0,0)
     , p2(0,0)
 {
+    setStyleSheet("background-color:white;");
     p2.setX(p1.rx() + 1);
-    p2.setY(0.5 * p2.rx() + 0.5);
+    p2.setY(1);
+    p2.setY(999 * p2.rx() + 0.5);
    // i=0;
     side = getDirection(p1,p2);
     setFixedSize(WINDOW_HEIGHT, WINDOW_HEIGHT);
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(update()));
-    timer->start(1);
-
+    timer->start(10);
 }
 
 void Window::paintEvent(QPaintEvent*)
@@ -40,29 +41,50 @@ void Window::paintEvent(QPaintEvent*)
     painter.setPen(pen);
     QPointF point(0, 0);
     painter.translate(WINDOW_HEIGHT/2, WINDOW_HEIGHT/2);
+//    painter.rotate(180);
     painter.drawEllipse(point, A, B);
 
     painter.drawPoint(p2);
-    if(ellipseFormula(p2) <= (1.0 + PRECISION) && ellipseFormula(p2) >= (1.0 - PRECISION)){
-            tangentPoint1 = p2;
-            QPointF tangentPoint2 = computeTangentPoint2(tangentPoint1);
-            QLineF tangentLine(computeSidePoint(tangentPoint1,tangentPoint2), tangentPoint2);
+    if(ellipseFormula(p2) > 1) {
+        drawTangentLine = true;
+        tangentPoint1 = getTangentPoint(p1,p2);
+        QPointF tangentPoint2 = computeTangentPoint2(tangentPoint1);
+        tangentLine = QLineF(computeSidePoint(tangentPoint1,tangentPoint2), tangentPoint2);
 
-          // painter.drawLine(tangentLine);
-            QLineF rayLine(point, tangentPoint1);
-          // painter.drawLine(rayLine);
-
-            p2 = rotatePoint(p1,tangentPoint1,computeAngleToRotate(tangentLine,rayLine));
-
-            p1 = tangentPoint1;
-            side = getDirection(p1,p2);
-
+        rayLine = QLineF(point, tangentPoint1);
+        qreal angle = computeAngleToRotate(tangentLine,rayLine);
+        p2 = rotatePoint(p1,tangentPoint1, angle);
+        if (ellipseFormula(p2) > 1 + PRECISION) {
+            p2 = rotatePoint(p2, tangentPoint1, 180);
+        }
+        p1 = tangentPoint1;
+        side = getDirection(p1,p2);
     }
     else {
-        QPointF p3 = getNewPoint(p1,p2,side);
+        QPointF p3 = getNewPoint(p1, p2, side);
         p1 = p2;
         p2 = p3;
     }
+    painter.drawLine(QLineF(tangentPoint1, p2));
+    if (drawTangentLine) {
+        painter.drawLine(QLineF(computeTangentPoint2(tangentPoint1), computeTangentPoint3(tangentPoint1)));
+    }
+}
+
+QPointF Window::getTangentPoint(QPointF p1, QPointF p2) {
+    QPointF p = p2;
+    while (!(ellipseFormula(p) <= (1.0 + PRECISION) && ellipseFormula(p) >= (1.0 - PRECISION))) {
+        qreal distance1 = qAbs(1 - ellipseFormula(p1));
+        qreal distance2 = qAbs(1 - ellipseFormula(p2));
+        if (distance1 > distance2) {
+            p1 = QPointF((p1.rx() + p2.rx()) / 2, (p1.ry() + p2.ry()) / 2);
+            p = p1;
+        } else {
+            p2 = QPointF((p1.rx() + p2.rx()) / 2, (p1.ry() + p2.ry()) / 2);
+            p = p2;
+        }
+    }
+    return p;
 }
 
 QPointF Window::rotatePoint(QPointF p, QPointF p0, qreal angle) {
@@ -81,12 +103,24 @@ qreal Window::ellipseFormula(QPointF p) {
     return pow(p.rx() / A, 2) + pow(p.ry() / B, 2);
 }
 
-QPointF Window::computeTangentPoint2(QPointF tangentPoint) {
-    qreal y = tangentPoint.ry() + 100;
-    qreal aPow = pow(A,2);
-    qreal bPow = pow(B,2);
+QPointF Window::computeTangentPoint3(QPointF tangentPoint) {
+    qreal y = tangentPoint.ry() - 30;
+    qreal aPow = qPow(A,2);
+    qreal bPow = qPow(B,2);
+    qreal x = 0;
+//    qreal x = (aPow * (bPow - y * tangentPoint.ry())) / (bPow * tangentPoint.rx());
+    x = (aPow - (aPow * y * tangentPoint.ry())/bPow) / tangentPoint.rx();
+    return QPointF(x, y);
+}
 
-    qreal x = (aPow*(bPow - y * tangentPoint.ry())) / (bPow * tangentPoint.rx());
+QPointF Window::computeTangentPoint2(QPointF tangentPoint) {
+    qreal y = tangentPoint.ry() + 30;
+    qreal aPow = qPow(A,2);
+    qreal bPow = qPow(B,2);
+
+    qreal x = 0;
+    //x = (aPow * (bPow- y * tangentPoint.ry())) / (bPow * tangentPoint.rx());
+    x = (aPow - (aPow * y * tangentPoint.ry())/bPow) / tangentPoint.rx();
     return QPointF(x, y);
 }
 

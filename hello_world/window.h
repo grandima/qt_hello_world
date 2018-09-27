@@ -31,6 +31,12 @@ private:
     QPointF rotatePoint(QPointF p, QPointF p0, qreal angle);
     Side getDirection(QPointF p1,QPointF p2);
     QPointF getNewPoint(QPointF p1, QPointF p2, Side side);
+    QPointF getTangentPoint(QPointF p1, QPointF p2);
+
+    bool drawTangentLine;
+    QLineF tangentLine;
+    QLineF rayLine;
+    QPointF computeTangentPoint3(QPointF tangentPoint);
 };
 
 
