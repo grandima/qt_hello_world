@@ -11,18 +11,19 @@
 #include <QGraphicsItem>
 #include <QtMath>
 const int WINDOW_HEIGHT = 500;
-const qreal PRECISION = 0.005;
-const qreal A = 100;
-const qreal B = 200;
+const qreal PRECISION = 0.03;
+const qreal A = 200;
+const qreal B = 100;
+
 Window::Window(QWidget *parent) :
     QWidget(parent)
     , p1(0,0)
-  , didDraw(false)
+    , p2(0,0)
 {
-
-    p2.setX(p2.rx() + 1);
-    p2.setY(0.5*p2.rx()+0.5);
-    i=0;
+    p2.setX(p1.rx() + 1);
+    p2.setY(0.5 * p2.rx() + 0.5);
+   // i=0;
+    side = getDirection(p1,p2);
     setFixedSize(WINDOW_HEIGHT, WINDOW_HEIGHT);
     timer = new QTimer(this);
     connect(timer, SIGNAL(timeout()), this, SLOT(update()));
@@ -42,35 +43,25 @@ void Window::paintEvent(QPaintEvent*)
     painter.drawEllipse(point, A, B);
 
     painter.drawPoint(p2);
-
-    p2.setX(p2.rx() + 1);
-    p2.setY(0.5*p2.rx()+0.5);
-
     if(ellipseFormula(p2) <= (1.0 + PRECISION) && ellipseFormula(p2) >= (1.0 - PRECISION)){
-        if (!didDraw) {
             tangentPoint1 = p2;
-            tangentPoint2 = computeTangentPoint2(tangentPoint1);
-        }
-        didDraw = true;
-    } else {
-        p1.setX(p2.rx());
-        p1.setY(p2.ry());
+            QPointF tangentPoint2 = computeTangentPoint2(tangentPoint1);
+            QLineF tangentLine(computeSidePoint(tangentPoint1,tangentPoint2), tangentPoint2);
+
+          // painter.drawLine(tangentLine);
+            QLineF rayLine(point, tangentPoint1);
+          // painter.drawLine(rayLine);
+
+            p2 = rotatePoint(p1,tangentPoint1,computeAngleToRotate(tangentLine,rayLine));
+
+            p1 = tangentPoint1;
+            side = getDirection(p1,p2);
+
     }
-
-    if (didDraw ) {
-
-        QLineF tangentLine(computeSidePoint(tangentPoint1,tangentPoint2), tangentPoint2);
-        painter.drawLine(tangentLine);
-
-        QLineF rayLine(point, tangentPoint1);
-        painter.drawLine(rayLine);
-
-        p2 = rotatePoint(p1,tangentPoint1,computeAngleToRotate(tangentLine,rayLine));
-        QLineF newLine(tangentPoint1, p2);
-//        painter.drawLine(newLine);
-        painter.drawPoint(p2);
-        p1 = tangentPoint1;
-        didDraw = false;
+    else {
+        QPointF p3 = getNewPoint(p1,p2,side);
+        p1 = p2;
+        p2 = p3;
     }
 }
 
@@ -101,10 +92,39 @@ QPointF Window::computeTangentPoint2(QPointF tangentPoint) {
 
 QPointF Window::computeSidePoint(QPointF p1, QPointF p2) {
     QPointF t;
-    t.ry()=-100;
+    t.ry()=200;
     t.rx() = (((t.ry()-p1.ry())*(p1.rx()-p2.rx()))/(p1.ry()-p2.ry())) +p1.rx();
     return t;
 }
+
+Window::Side Window::getDirection(QPointF p1, QPointF p2)
+{
+    bool checkX = (p2.rx()-p1.rx())>0;
+    bool checkY = (p2.ry()-p1.ry())>0;
+
+    if (checkX && checkY)
+        return xPlusYplus;
+    else if(!checkX && checkY)
+        return xMinusYplus;
+    else if(checkX && !checkY)
+        return xPlusYminus;
+    else
+        return xMinusYminus;
+
+}
+QPointF Window::getNewPoint(QPointF p1, QPointF p2, Side side)
+{
+    qreal x3;
+    if(side == xPlusYminus || side == xPlusYplus) {
+        x3 = p2.rx() + 1;
+    } else {
+        x3 = p2.rx() - 1;
+    }
+    qreal y = (((x3 - p1.rx()) * (p1.ry() - p2.ry())) / (p1.rx() - p2.rx())) + p1.ry();
+    return QPointF(x3,y);
+}
+
+
 
 
 
